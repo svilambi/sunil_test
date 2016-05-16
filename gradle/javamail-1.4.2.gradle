@@ -1,0 +1,33 @@
+apply plugin: 'java'
+
+defaultTasks 'copyjavamailDeps'
+
+repositories {
+   maven {
+     url 'http://172.16.170.182:9090/repository/internal'
+   }
+}
+
+
+dependencies {
+  
+    compile 'dsn:dsn:1.4.2'
+	compile 'imap:imap:1.4.2'
+	compile 'mail:mail:1.4.2'
+	compile 'mailapi:mailapi:1.4.2'
+	compile 'pop3:pop3:1.4.2'
+	compile 'smtp:smtp:1.4.2'
+
+}
+
+task copyjavamailDeps(type: Copy) {
+  from configurations.runtime
+  into 'jars/javamail-1.4.2/lib'
+	 rename ('dsn.1.4.2.jar', 'dsn.jar')
+	 rename ('imap.1.4.2.jar', 'imap.jar')
+	 rename ('mail.1.4.2.jar', 'mail.jar')
+	 rename ('mailapi.1.4.2.jar', 'mailapi.jar')
+	 rename ('pop3.1.4.2.jar', 'pop3.jar')
+	 rename ('smtp.1.4.2.jar', 'smtp.jar')
+		
+}

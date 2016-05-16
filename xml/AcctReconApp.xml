@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<report-definitions>
+  <app-name>AcctReconApp</app-name>
+  <report>
+    <class-name>ICTSReport.Report.SimpleDXReport</class-name>
+    <report-name>SAP Recon</report-name>
+    <query>
+
+
+SELECT 
+case when VoucherAmtDiff!=0 and VoucherPaidAmtDiff!=0 then 'BothAmt-Diff'
+else case when VoucherAmtDiff!=0 then 'VoucherAmtDiff'
+	 when VoucherPaidAmtDiff!=0 then 'VoucherPaidAmtDiff'
+end
+end 'DiffType',
+b.acct_short_name 'BookingComp',a.acct_short_name 'CptyCompany',voucher_num 'Voucher'	,SAPDueDate	,VoucherDueDate	,Currency	,voucher_curr_code 'VCurr'	,SAPAmt	,VoucherAmt	,SAPPaidAmt	,VoucherPaidAmt	,VoucherAmtDiff	,VoucherPaidAmtDiff
+from 
+(
+select v.voucher_num,DueDate SAPDueDate,voucher_due_date VoucherDueDate,Currency,voucher_curr_code ,
+isnull(Amount,0) 'SAPAmt',case when voucher_pay_recv_ind='P' then -1 else 1 end *voucher_tot_amt 'VoucherAmt', round(round(isnull(Amount,0),2)-round((case when voucher_pay_recv_ind='P' then -1 else 1 end* isnull(voucher_tot_amt,0)),2),2) 'VoucherAmtDiff',
+isnull(PaidAmount,0) 'SAPPaidAmt',case when voucher_pay_recv_ind='P' then -1 else 1 end * isnull(isnull(voch_tot_paid_amt,voucher_pay_amt),0) 'VoucherPaidAmt', round((isnull(PaidAmount,0)-case when voucher_pay_recv_ind='P' then -1 else 1 end* isnull(isnull(voch_tot_paid_amt,voucher_pay_amt),0)),2) 'VoucherPaidAmtDiff', v.acct_num, v.voucher_book_comp_num
+From Mercuria_RefData..sap_voucher_recon sap, 
+PROD_mercuria_trade..voucher v
+LEFT OUTER JOIN (select voucher_num, sum(voucher_pay_amt) voucher_pay_amt
+ from PROD_mercuria_trade..voucher_payment vp
+ group by voucher_num
+) vch_pay ON vch_pay.voucher_num=v.voucher_num
+
+where v.voucher_num=sap.Reference
+--and v.voucher_num> 262669 /*****karine bineau: Auditors just confirmed we are done with 2011 vouchers****/
+and 
+(
+(abs(round(sap.Amount,0)-round(v.voucher_tot_amt,0))>1 and voucher_pay_recv_ind='R')
+OR (abs(round(sap.Amount,0)-round(v.voucher_tot_amt*-1,0))>1 and voucher_pay_recv_ind='P') 
+OR
+(abs(round(sap.PaidAmount,0)-round(isnull(v.voch_tot_paid_amt,0),0))>1 and voucher_pay_recv_ind='R')
+OR (abs(round(sap.PaidAmount,0)-round(isnull(v.voch_tot_paid_amt,0)*-1,0))>1 and voucher_pay_recv_ind='P') 
+)
+)
+sap_recon , PROD_mercuria_trade..account b, PROD_mercuria_trade..account a
+WHERE (VoucherAmtDiff!=0 OR VoucherPaidAmtDiff!=0)
+and b.acct_num=sap_recon.voucher_book_comp_num
+and a.acct_num=sap_recon.acct_num
+
+      @SpecificQualifier
+      @BookingCompanyNames
+    </query>
+    <column-count>36</column-count>
+    <style-scheme>Pastel#1</style-scheme>
+     <search-parameters>
+      <search-parameter>
+        <parameter-name>BookingCompanyNames</parameter-name>
+	<search-by-real_portfolio>Y</search-by-real_portfolio>
+        <display-name>Booking Companies</display-name>
+        <search-column>b.acct_short_name</search-column>
+        <parameter-value-type>Query</parameter-value-type>
+        <parameter-values>select distinct acct_short_name 
+	From account  where 
+	acct_type_code = 'PEICOMP' and acct_status = 'A'
+	order by acct_short_name
+	</parameter-values>
+        <multi-selection-allowed>Y</multi-selection-allowed>
+        <parameter-optional>Y</parameter-optional>
+      </search-parameter>
+     </search-parameters>
+    <format-data>    
+      <column-format>
+        <column-name>SAPAmt</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherAmt</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>SAPPaidAmt</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherPaidAmt</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>SAPDueDate</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherDueDate</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherPaidAmtDiff</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherAmtDiff</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+    </format-data>      
+    <allow-save-format>Y</allow-save-format>
+    <group-summary>
+      <summary-row>
+        <column-name>VoucherPaidAmtDiff</column-name>
+        <summary-type>Sum</summary-type>
+        <summary-format>Voucher Paid Amt Diff{0:n0}</summary-format>
+      </summary-row>
+    </group-summary>
+  </report>
+<report>
+    <class-name>ICTSReport.Report.SimpleDXReport</class-name>
+    <report-name>Posted-UnpostedDiff</report-name>
+    <query>
+
+	SELECT 
+	case when Reference=-1 then 'PostingDiff'
+		 when ICTSPostedDate is null then 'UNPostingDiff'
+		 when VoucherAmtDiff!=0 then 'VoucherAmtDiff'
+		 when voucher_curr_code!=Currency then 'CurrencyDiff'
+		 when unpost.acct_num!=CounterParty then 'VCI-CodeDiff'
+		 when voucher_pay_recv_ind!=SAPpayrecInd then 'VoucherPayRecIndDiff'
+	end 'DiffType',PostingDate 'SAPPostedDate', ICTSPostedDate,unpost.acct_num 'VCI-Code',CounterParty 'SAP-VCI-Code', voucher_pay_recv_ind,PostingClringDoc,
+	NULL 'BookingComp',NULL'CptyCompany',Reference 'Voucher'	,SAPDueDate	,VoucherDueDate	,Currency	,voucher_curr_code 'VCurr'	,SAPAmt	,VoucherAmt	,VoucherAmtDiff	,Comment
+	from 
+	(
+
+		select NULL 'voucher_num',Reference,DueDate SAPDueDate,NULL 'VoucherDueDate',NULL 'voucher_curr_code',Currency, NULL 'acct_num',CounterParty, NULL 'voucher_pay_recv_ind', case when PostingClringDoc='AP' then 'P' else 'R' end 'SAPpayrecInd',PostingClringDoc,
+		isnull(Amount,0) 'SAPAmt',NULL 'VoucherAmt', NULL 'VoucherAmtDiff',
+		NULL 'Date', NULL 'ICTSPostedDate', sap.PostingDate, NULL 'Comment'
+		From Mercuria_RefData..sap_voucher_recon sap 
+		WHERE not exists (select 1 from PROD_mercuria_trade..voucher v
+					where v.voucher_num=sap.Reference
+					)
+		AND Reference is not null
+		)
+		unpost
+		WHERE Reference is not null-- and Reference=314346
+
+	UNION
+	SELECT 
+	case when Reference=-1 then 'PostingDiff'
+		 when ICTSPostedDate is null then 'UNPostingDiff'
+		 when VoucherAmtDiff!=0 then 'VoucherAmtDiff'
+		 when voucher_curr_code!=Currency then 'CurrencyDiff'
+		 when sap_recon.acct_num!=CounterParty then 'VCI-CodeDiff'
+		 when voucher_pay_recv_ind!=SAPpayrecInd then 'VoucherPayRecIndDiff'
+	end 'DiffType',PostingDate 'SAPPostedDate', ICTSPostedDate,sap_recon.acct_num 'VCI-Code',CounterParty 'SAP-VCI-Code', voucher_pay_recv_ind,PostingClringDoc,
+	b.acct_short_name 'BookingComp',a.acct_short_name 'CptyCompany',voucher_num 'Voucher'	,SAPDueDate	,VoucherDueDate	,Currency	,voucher_curr_code 'VCurr'	,SAPAmt	,VoucherAmt	,VoucherAmtDiff	,Comment
+	from 
+	(
+		select voucher_num,Reference,DueDate SAPDueDate,voucher_due_date VoucherDueDate,isnull(cmdty_short_name,voucher_curr_code ) voucher_curr_code ,Currency, v.acct_num,CounterParty, voucher_pay_recv_ind, case when PostingClringDoc='AP' then 'P' else 'R' end 'SAPpayrecInd',PostingClringDoc,
+		isnull(Amount,0) 'SAPAmt',case when voucher_pay_recv_ind='P' then -1 else 1 end *voucher_tot_amt 'VoucherAmt', round(round(isnull(Amount,0),2)-round((case when voucher_pay_recv_ind='P' then -1 else 1 end* isnull(voucher_tot_amt,0)),2),2) 'VoucherAmtDiff',
+		v.voucher_book_comp_num, voucher_book_date 'ICTSPostedDate', sap.PostingDate, v.voucher_short_cmnt 'Comment'
+		From Mercuria_RefData..sap_voucher_recon sap, 
+		PROD_mercuria_trade..voucher v
+			LEFT OUTER JOIN PROD_mercuria_trade..commodity cmdty ON v.voucher_curr_code=cmdty.cmdty_code and cmdty_type='C'
+		where v.voucher_num=sap.Reference
+		union
+		select voucher_num,-1,'' SAPDueDate,voucher_due_date VoucherDueDate,isnull(cmdty_short_name,voucher_curr_code ) voucher_curr_code ,NULL, v.acct_num,NULL, voucher_pay_recv_ind, NULL 'SAPpayrecInd',NULL,
+		NULL 'SAPAmt',case when voucher_pay_recv_ind='P' then -1 else 1 end *voucher_tot_amt 'VoucherAmt', round(0-round((case when voucher_pay_recv_ind='P' then -1 else 1 end* isnull(voucher_tot_amt,0)),2),2) 'VoucherAmtDiff',
+		v.voucher_book_comp_num, voucher_book_date 'ICTSPostedDate', NULL PostingDate, v.voucher_short_cmnt 'Comment'
+		From PROD_mercuria_trade..voucher v
+			LEFT OUTER JOIN PROD_mercuria_trade..commodity cmdty ON v.voucher_curr_code=cmdty.cmdty_code and cmdty_type='C'
+		where  voucher_book_date is not null and voucher_book_date>='01/01/2011'
+		and v.voucher_num> 369914 /*****karine bineau: Auditors just confirmed we are done with 2011 vouchers****/
+		and not exists
+		(select 1 from Mercuria_RefData..sap_voucher_recon sap where v.voucher_num=sap.Reference)
+		union
+		select voucher_num,Reference,DueDate SAPDueDate,voucher_due_date VoucherDueDate,isnull(cmdty_short_name,voucher_curr_code ) voucher_curr_code ,Currency, v.acct_num,CounterParty, voucher_pay_recv_ind, case when PostingClringDoc='AP' then 'P' else 'R' end 'SAPpayrecInd',PostingClringDoc,
+		isnull(Amount,0) 'SAPAmt',case when voucher_pay_recv_ind='P' then -1 else 1 end *voucher_tot_amt 'VoucherAmt', round(round(isnull(Amount,0),2)-round((case when voucher_pay_recv_ind='P' then -1 else 1 end* isnull(voucher_tot_amt,0)),2),2) 'VoucherAmtDiff',
+		v.voucher_book_comp_num, voucher_book_date 'ICTSPostedDate', sap.PostingDate, v.voucher_short_cmnt 'Comment'
+		From Mercuria_RefData..sap_voucher_recon sap, 
+		PROD_mercuria_trade..voucher v
+			LEFT OUTER JOIN PROD_mercuria_trade..commodity cmdty ON v.voucher_curr_code=cmdty.cmdty_code and cmdty_type='C'
+		where v.voucher_num=sap.Reference
+
+	)
+	sap_recon , PROD_mercuria_trade..account b, PROD_mercuria_trade..account a
+	WHERE 
+	b.acct_num=sap_recon.voucher_book_comp_num
+	and a.acct_num=sap_recon.acct_num
+	and
+	(
+	round(VoucherAmtDiff,0)!=0 
+	OR 
+	voucher_curr_code!=Currency 
+	OR
+	sap_recon.acct_num!=CounterParty
+	OR
+	voucher_pay_recv_ind!=SAPpayrecInd
+	OR
+	ICTSPostedDate is null
+	)
+
+
+
+      @SpecificQualifier
+      @BookingCompanyNames
+    </query>
+    <style-scheme>Pastel#2</style-scheme>
+     <search-parameters>
+      <search-parameter>
+        <parameter-name>BookingCompanyNames</parameter-name>
+	<search-by-real_portfolio>Y</search-by-real_portfolio>
+        <display-name>Booking Companies</display-name>
+        <search-column>b.acct_short_name</search-column>
+        <parameter-value-type>Query</parameter-value-type>
+        <parameter-values>select distinct acct_short_name 
+	From account  where 
+	acct_type_code = 'PEICOMP' and acct_status = 'A'
+	order by acct_short_name
+	</parameter-values>
+        <multi-selection-allowed>Y</multi-selection-allowed>
+        <parameter-optional>Y</parameter-optional>
+      </search-parameter>
+     </search-parameters>
+    <format-data>    
+      <column-format>
+        <column-name>SAPAmt</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherAmt</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>SAPDueDate</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherDueDate</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>VoucherAmtDiff</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+    </format-data>      
+    <allow-save-format>N</allow-save-format>
+    <group-summary>
+      <summary-row>
+        <column-name>VoucherAmtDiff</column-name>
+        <summary-type>Sum</summary-type>
+        <summary-format>Voucher Amt Diff{0:n0}</summary-format>
+      </summary-row>
+    </group-summary>
+  </report>
+<report>
+    <class-name>ICTSReport.Report.SimpleDXReport</class-name>
+    <report-name>UnpaidVoucher</report-name>
+    <query>
+      exec usp_get_unpaid_voucher_details_test
+    </query>
+    <style-scheme>Pastel#2</style-scheme>
+<format-data>
+      <column-format>
+        <column-name>Creation Date</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>DueDate</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>Expected Payment Date</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>Confirmed Payment Date</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>EstimatedTitle</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>Partial Payment Date</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>Next Action Date</column-name>
+        <date-format>dd-MMM-yy</date-format>
+      </column-format>
+      <column-format>
+        <column-name>Voucher Amount</column-name>
+        <number-format>#,##0.00</number-format>
+      </column-format>
+      <column-format>
+        <column-name>Partial Payment Amount</column-name>
+        <number-format>#,##0</number-format>
+      </column-format>
+      <column-format>
+        <column-name>Unpaid Amount</column-name>
+        <number-format>#,##0</number-format>
+      </column-format>
+    </format-data>
+    <allow-save-format>N</allow-save-format>
+    <group-summary>
+      <summary-row>
+        <column-name>Unpaid Amount</column-name>
+        <summary-type>Sum</summary-type>
+        <summary-format>Total UnpaidAmt  {0:n0}</summary-format>
+      </summary-row>
+    </group-summary>
+  </report>
+</report-definitions>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<report-definitions>
+  <app-name>AllocationUpdate</app-name>
+  <report>
+    <class-name>ICTSReport.Report.AllocationUpdate</class-name>
+    <report-name>AllocationSearch</report-name>
+    <report-permission>
+      select 1
+    </report-permission>  
+    <query>
+      select ti.cmdty_code 'Cmdty',
+      ac.acct_short_name 'Counterparty',
+      ai.alloc_num 'Allocation Num',
+      ai.alloc_item_num 'Allocation Item Num',
+      convert(varchar, ai.trade_num) + '/' + convert(varchar, ai.order_num) + '/' + convert(varchar, ai.item_num) 'Trade Key',
+      ti.real_port_num 'Portfolio',
+      t.contr_date 'Trade Date',
+      w.del_term_code 'DelTerm',
+      ai.alloc_item_type 'Receipt/Delivery',
+      isnull(tl.loc_name, ai.title_tran_loc_code) 'Location',
+      le.state_code 'State',
+      le.country_code 'Country',
+      ai.sch_qty  'SchQty',
+      ai.sch_qty_uom_code 'SchQtyUom',
+      ai.nomin_qty_max 'NomQty',
+      ai.nomin_qty_max_uom_code 'NomQtyUom',
+      ai.actual_gross_qty 'ActualQty'
+      from allocation_item ai
+      left outer join location tl on ai.title_tran_loc_code = tl.loc_code
+      LEFT OUTER JOIN location_ext_info le ON ai.title_tran_loc_code = le.loc_code,
+      allocation a,
+      trade_item ti, trade t,
+      trade_item_wet_phy w,
+      account ac
+      where a.alloc_num = ai.alloc_num
+      and ti.trade_num = ai.trade_num
+      and ti.order_num = ai.order_num
+      and ti.item_num = ai.item_num
+      and t.trade_num = ti.trade_num
+      and w.trade_num = ti.trade_num
+      and w.order_num = ti.order_num
+      and w.item_num = ti.item_num
+      and ac.acct_num = t.acct_num
+      and ai.fully_actualized = 'N'
+      and a.alloc_type_code not in ('N','O','J','B','T')
+      @AllocNum
+    </query>
+    <style-scheme>Pastel#1</style-scheme>
+     <search-parameters>
+      <search-parameter>
+        <parameter-name>AllocNum</parameter-name>
+        <display-name>Allocation Number</display-name>
+        <search-column>ai.alloc_num</search-column>
+        <parameter-value-type>NumericInput</parameter-value-type>
+        <parameter-optional>N</parameter-optional>
+      </search-parameter>          
+     </search-parameters>
+    <format-data>    
+    </format-data>
+    <edit-rules>
+      <edit-rule>
+        <column-name>SchQty</column-name>
+        <edit-permission>
+          select 1 from icts_function icf, user_permission up, icts_user iu where
+          icf.function_num = up.function_num and
+          up.user_init =iu.user_init and
+          iu.user_logon_id = lower(@WindowsLogin) and
+          icf.function_num = 603
+        </edit-permission>
+        <edit-condition></edit-condition>
+        <update-table>allocation_item</update-table>
+        <update-column>sch_qty</update-column>
+        <update-qualifier>alloc_num = [Allocation Num] and alloc_item_num = [Allocation Item Num]</update-qualifier>
+        <update-value></update-value>
+      </edit-rule>
+    </edit-rules>
+    <allow-save-format>N</allow-save-format>
+  </report>
+  <report>
+    <class-name>ICTSReport.Report.TradeQuantityRoll</class-name>
+    <report-name>TradeQuantityRoll</report-name>
+    <report-permission>
+      select 1
+    </report-permission>
+    <query>
+      select ti.trade_num 'Trade Num',
+      ti.order_num 'Order Num',
+      ti.item_num 'Item Num',
+      ti.cmdty_code 'Cmdty',
+      ac.acct_short_name 'Counterparty',
+      ti.real_port_num 'Portfolio',
+      t.contr_date 'Trade Date',
+      w.del_term_code 'DelTerm',
+      tl.loc_name 'Location',
+      ti.contr_qty 'Contract Qty',
+      ti.contr_qty_uom_code 'ContrQtyUom',
+      ti.contr_qty_periodicity 'ContrQtyPeriodicity',
+      ti.total_sch_qty 'Sch Qty',
+      ti.open_qty 'Open Qty'
+      from trade_item ti,
+      trade_item_wet_phy w
+      left outer join location tl on w.del_loc_code = tl.loc_code,
+      trade t,
+      account ac
+      where
+      t.trade_num = ti.trade_num
+      and w.trade_num = ti.trade_num
+      and w.order_num = ti.order_num
+      and w.item_num = ti.item_num
+      and ac.acct_num = t.acct_num
+      and ti.open_qty > 0.0
+      @TradeNum
+    </query>
+    <style-scheme>Pastel#1</style-scheme>
+    <search-parameters>
+      <search-parameter>
+        <parameter-name>TradeNum</parameter-name>
+        <display-name>Trade Number</display-name>
+        <search-column>ti.trade_num</search-column>
+        <parameter-value-type>NumericInput</parameter-value-type>
+        <parameter-optional>N</parameter-optional>
+      </search-parameter>
+    </search-parameters>
+    <format-data>
+    </format-data>
+    <edit-rules>
+      <edit-rule>
+        <column-name>Contract Qty</column-name>
+        <edit-permission>
+          select 1 from icts_function icf, user_permission up, icts_user iu where
+          icf.function_num = up.function_num and
+          up.user_init =iu.user_init and
+          iu.user_logon_id = lower(@WindowsLogin) and
+          icf.function_num = 2
+        </edit-permission>
+        <edit-condition></edit-condition>
+        <update-table>trade_item</update-table>
+        <update-column>contr_qty</update-column>
+        <update-qualifier>trade_num = [Trade Num] and order_num = [Order Num] and item_num = [Item Num]</update-qualifier>
+        <update-value></update-value>
+      </edit-rule>
+    </edit-rules>
+    <allow-save-format>N</allow-save-format>
+  </report>
+</report-definitions>
