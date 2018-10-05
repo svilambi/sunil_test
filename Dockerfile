@@ -6,4 +6,4 @@ WORKDIR /Java/Program
 COPY Java /Java/Program/
 
 RUN javac ThreadSleep.java
-RUN java ThreadSleep
+CMD java ThreadSleep
